@@ -1,57 +1,124 @@
 #
 class profile_traefik2 (
-  Hash                 $dynamic_config        = {},
-  Hash                 $static_config         = {},
-  String               $version               = '2.3.2',
-  Boolean              $expose_api            = true,
-  Boolean              $expose_metrics        = true,
-  Boolean              $expose_ui             = false,
-  Boolean              $manage_firewall_entry = true,
-  Boolean              $manage_sd_service     = false,
-  Enum['http','https'] $protocol              = 'https',
-  String               $sd_service_name       = 'traefik',
-  Array                $sd_service_tags       = ['metrics'],
-  Integer              $traefik_api_port      = 8080,
+  Hash                 $entrypoints,
+  String               $consul_datacenter,
+  Hash                 $dynamic_config,
+  String               $version,
+  Boolean              $expose_api,
+  Boolean              $expose_metrics,
+  Boolean              $manage_firewall_entry,
+  String               $sd_service_name,
+  Array                $sd_service_tags,
+  Integer              $traefik_api_port,
+  Array                $service_domain_names,
+  String               $consul_prefix,
+  Hash                 $services,
+  Boolean              $manage_sd_service            = lookup('manage_sd_service', Boolean, first, true),
 ) {
+  openssl::certificate::x509 { $facts['networking']['fqdn']:
+    country      => 'BE',
+    organization => $facts['networking']['domain'],
+    commonname   => $facts['networking']['fqdn'],
+    altnames     => $service_domain_names,
+  }
+
+  $_static_config = {
+    entryPoints => $entrypoints,
+    log         => '/var/log/traefik2/traefik.log',
+    metrics     => {
+      prometheus => {
+        addEntryPointLabels => true,
+        addServicesLabels   => true,
+      }
+    },
+    ping        => {},
+    log         => {
+      level   => 'INFO',
+      filePath => '/var/log/traefik2/traefik.log',
+    },
+    accesslog   => {
+      filePath => '/var/log/traefik2/access.log',
+    },
+    http        => {
+      services => $services,
+    },
+    api         => {
+      debug     => true,
+      dashboard => true,
+      insecure  => true,
+    },
+    servertransport => {
+      insecureSkipVerify => true,
+    },
+    tls             => {
+      certificates => {
+        certFile => "/etc/ssl/certs/${facts[networking][fqdn]}.crt",
+        keyFile  => "/etc/ssl/certs/${facts[networking][fqdn]}.key",
+      }
+    },
+    providers        => {
+      consulCatalog => {
+        exposedByDefault => false,
+        refreshInterval  => '5s',
+        prefix           => $consul_prefix,
+        endpoint         => {
+          scheme   => 'https',
+          address  => '127.0.0.1:8500',
+          datacenter => $consul_datacenter,
+          tls        => {
+            insecureSkipVerify => true,
+          }
+        }
+      }
+      file          => {
+        filename => '/etc/traefik2/dynamic.yaml',
+        watch    => true,
+      }
+    },
+  }
+
   class { '::traefik2':
-    dynamic_config => $dynamic_config,
     version        => $version,
-    static_config  => $static_config,
+    static_config  => $_static_config,
+    dynamic_config => $dynamic_config,
   }
 
   if $manage_firewall_entry {
-    if $protocol == 'https' {
-      firewall { '00443 allow Traefik HTTPS':
-        dport  => '443',
+    profile_traefik2::get_ports_entrypoints($entrypoints).each | String $name, Integer $port | {
+      firewall { "00${port} allow Traefik entrypoint ${name}":
+        dport  => $port,
         action => 'accept',
       }
-    } else {
-      firewall { '00080 allow Traefik HTTPS':
-        dport  => '80',
-        action => 'accept',
+
+      consul::service { "Traefik endpoint ${name}":
+        checks => [
+          {
+            tcp      => "${facts[networking][ip]}:${port}",
+            interval => '10s',
+          }
+        ],
+        port   => $port,
       }
     }
   }
 
   if $expose_api {
-    if $expose_ui {
-      if $manage_firewall_entry {
-        firewall { "0${traefik_api_port} allow Traefik Proxy and API/Dashboard":
-          dport  => $traefik_api_port,
-          action => 'accept',
-        }
+    if $manage_firewall_entry {
+      firewall { "0${traefik_api_port} allow Traefik Proxy and API/Dashboard":
+        dport  => $traefik_api_port,
+        action => 'accept',
       }
-      if $manage_sd_service {
-        consul::service { $sd_service_name:
-          checks => [
-            {
-              http     => "http://${::ipaddress}:${traefik_api_port}/ping/",
-              interval => '10s'
-            }
-          ],
-          port   => $traefik_api_port,
-          tags   => $sd_service_tags,
-        }
+    }
+    if $manage_sd_service {
+      consul::service { $sd_service_name:
+        checks => [
+          {
+            http     => "http://${facts[networking][ip]}:${traefik_api_port}/ping/",
+            interval => '10s'
+          }
+        ],
+        port   => $traefik_api_port,
+        tags   => $sd_service_tags,
       }
     }
   }
