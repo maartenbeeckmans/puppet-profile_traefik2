@@ -27,8 +27,8 @@ class profile_traefik2 (
     log         => '/var/log/traefik2/traefik.log',
     metrics     => {
       prometheus => {
-        addEntryPointLabels => true,
-        addServicesLabels   => true,
+        addEntryPointsLabels => true,
+        addServicesLabels    => true,
       }
     },
     ping        => {},
@@ -69,7 +69,7 @@ class profile_traefik2 (
             insecureSkipVerify => true,
           }
         }
-      }
+      },
       file          => {
         filename => '/etc/traefik2/dynamic.yaml',
         watch    => true,
@@ -84,22 +84,23 @@ class profile_traefik2 (
   }
 
   if $manage_firewall_entry {
-    profile_traefik2::get_ports_entrypoints($entrypoints).each | String $name, Integer $port | {
-      firewall { "00${port} allow Traefik entrypoint ${name}":
-        dport  => $port,
+    $entrypoints.each | String $name, Hash $config | {
+      $_port = profile_traefik2::get_port_entrypoint($config)
+      firewall { "00${_port} allow Traefik entrypoint ${name}":
+        dport  => $_port,
         action => 'accept',
       }
-
       consul::service { "Traefik endpoint ${name}":
         checks => [
           {
-            tcp      => "${facts[networking][ip]}:${port}",
+            tcp      => "${facts[networking][ip]}:${_port}",
             interval => '10s',
           }
         ],
-        port   => $port,
+        port   => $_port,
       }
     }
+
   }
 
   if $expose_api {
