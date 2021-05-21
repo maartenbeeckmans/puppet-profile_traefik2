@@ -6,18 +6,11 @@ Puppet::Functions.create_function(:'profile_traefik2::get_port_entrypoint') do
 
   # Reformat the following hash:
   #
-  #   {
-  #     http => {
-  #       address => '0.0.0.0:80',
-  #     },
-  #     https => {
-  #       address => '0.0.0.0:443'.
-  #     },
-  #   }
+  #  { address => '0.0.0.0:80', }
   #   
-  # Into the following hash
+  # Into the following integer:
   #
-  #   [ http  => 80, https => 443 ]
+  #   80
   #
   # This function can be used for generating additional resources like the firewall
   def get_port_entrypoint(config)
