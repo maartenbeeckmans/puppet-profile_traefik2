@@ -2,6 +2,9 @@
 class profile_traefik2 (
   Hash                 $entrypoints,
   String               $consul_datacenter,
+  Stdlib::Absolutepath $consul_root_ca_file,
+  Stdlib::Absolutepath $consul_cert_file,
+  Stdlib::Absolutepath $consul_key_file,
   Hash                 $dynamic_config,
   String               $version,
   Boolean              $expose_api,
@@ -67,6 +70,9 @@ class profile_traefik2 (
           datacenter => $consul_datacenter,
           tls        => {
             insecureSkipVerify => true,
+            ca                 => $consul_root_ca_file,
+            cert               => $consul_cert_file,
+            key                => $consul_key_file,
           }
         }
       },

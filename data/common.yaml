@@ -5,6 +5,9 @@ profile_traefik2::entrypoints:
   https:
     address: '0.0.0.0:443'
 profile_traefik2::consul_datacenter: "%{hiera('profile_consul::datacenter')}"
+profile_traefik2::consul_root_ca_file: "%{hiera('profile_consul::root_ca_file')}"
+profile_traefik2::consul_cert_file: "%{hiera('profile_consul::cert_file')}"
+profile_traefik2::consul_key_file: "%{hiera('profile_consul::key_file')}"
 profile_traefik2::dynamic_config: {}
 profile_traefik2::version: '2.4.8'
 profile_traefik2::expose_api: true
