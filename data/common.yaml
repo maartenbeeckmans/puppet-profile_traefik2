@@ -20,4 +20,6 @@ profile_traefik2::consul_prefix: 'traefik'
 profile_traefik2::services: {}
 profile_traefik2::service_domain_names: []
 profile_traefik2::enable_letsencrypt: false
+profile_traefik2::letsencrypt_email: ~
+profile_traefik2::letsencrypt_challenge_entrypoint: ~
 ...

@@ -31,10 +31,10 @@ class profile_traefik2 (
   if $enable_letsencrypt {
     $_certificates_resolvers = {
       certificatesResolvers => {
-        sample => {
+        le => {
           acme => {
             email => $letsencrypt_email,
-            storage => 'acme.json',
+            storage => '/var/lib/traefik2/letsencrypt.json',
             httpChallenge => {
               entryPoint => $letsencrypt_challenge_entrypoint,
             }
@@ -43,7 +43,7 @@ class profile_traefik2 (
       }
     }
   } else {
-    $_certificate_resolvers = {}
+    $_certificates_resolvers = {}
   }
 
   $_static_config = {
@@ -103,7 +103,7 @@ class profile_traefik2 (
     },
   }
 
-  $_final_static_config = deep_merge($_static_config, $_certificate_resolvers)
+  $_final_static_config = deep_merge($_static_config, $_certificates_resolvers)
 
   class { '::traefik2':
     version        => $version,
