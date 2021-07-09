@@ -19,4 +19,5 @@ profile_traefik2::traefik_api_port: 8080
 profile_traefik2::consul_prefix: 'traefik'
 profile_traefik2::services: {}
 profile_traefik2::service_domain_names: []
+profile_traefik2::enable_letsencrypt: false
 ...

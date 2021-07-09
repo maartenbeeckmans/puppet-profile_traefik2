@@ -16,7 +16,10 @@ class profile_traefik2 (
   Array                $service_domain_names,
   String               $consul_prefix,
   Hash                 $services,
-  Boolean              $manage_sd_service            = lookup('manage_sd_service', Boolean, first, true),
+  Boolean              $enable_letsencrypt,
+  Optional[String]     $letsencrypt_email,
+  Optional[String]     $letsencrypt_challenge_entrypoint,
+  Boolean              $manage_sd_service                = lookup('manage_sd_service', Boolean, first, true),
 ) {
   openssl::certificate::x509 { $facts['networking']['fqdn']:
     country      => 'BE',
@@ -25,9 +28,26 @@ class profile_traefik2 (
     altnames     => $service_domain_names,
   }
 
+  if $enable_letsencrypt {
+    $_certificates_resolvers = {
+      certificatesResolvers => {
+        sample => {
+          acme => {
+            email => $letsencrypt_email,
+            storage => 'acme.json',
+            httpChallenge => {
+              entryPoint => $letsencrypt_challenge_entrypoint,
+            }
+          }
+        }
+      }
+    }
+  } else {
+    $_certificate_resolvers = {}
+  }
+
   $_static_config = {
     entryPoints => $entrypoints,
-    log         => '/var/log/traefik2/traefik.log',
     metrics     => {
       prometheus => {
         addEntryPointsLabels => true,
@@ -83,9 +103,11 @@ class profile_traefik2 (
     },
   }
 
+  $_final_static_config = deep_merge($_static_config, $_certificate_resolvers)
+
   class { '::traefik2':
     version        => $version,
-    static_config  => $_static_config,
+    static_config  => $_final_static_config,
     dynamic_config => $dynamic_config,
   }
 
