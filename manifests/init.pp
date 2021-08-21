@@ -114,14 +114,26 @@ class profile_traefik2 (
   if $manage_firewall_entry {
     $entrypoints.each | String $name, Hash $config | {
       $_port = profile_traefik2::get_port_entrypoint($config)
-      firewall { "00${_port} allow Traefik entrypoint ${name}":
-        dport  => $_port,
-        action => 'accept',
+      $_listen_ip = profile_traefik2::get_ip_entrypoint($config)
+
+      if $_listen_ip == '0.0.0.0' {
+        $_real_listen_ip = $facts['networking']['ip']
+        firewall { "00${_port} allow Traefik entrypoint ${name}":
+          dport       => $_port,
+          action      => 'accept',
+        }
+      } else {
+        $_real_listen_ip = $_listen_ip
+        firewall { "00${_port} allow Traefik entrypoint ${name} ${_real_listen_ip}":
+          destination => $_real_listen_ip,
+          dport       => $_port,
+          action      => 'accept',
+        }
       }
       consul::service { "traefik-endpoint-${name}":
         checks => [
           {
-            tcp      => "${facts[networking][ip]}:${_port}",
+            tcp      => "${_real_listen_ip}:${_port}",
             interval => '10s',
           }
         ],
