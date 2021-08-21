@@ -118,7 +118,7 @@ class profile_traefik2 (
         dport  => $_port,
         action => 'accept',
       }
-      consul::service { "Traefik endpoint ${name}":
+      consul::service { "traefik-endpoint-${name}":
         checks => [
           {
             tcp      => "${facts[networking][ip]}:${_port}",
